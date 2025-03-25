@@ -16,20 +16,64 @@ function App() {
   const [isRunning, setIsRunning] = useState(false);
   const [packetReceived, setPacketReceived] = useState(false);
   
-  // State to track visible UI elements
-  const [visibleElements, setVisibleElements] = useState({
-    Map: true,
-    Orientation: true,
-    Trajectory: true,
-    Graphs: true,
-    Sidebar: true
-  });
+  // Workspace management
+  const [activeWorkspace, setActiveWorkspace] = useState(0);
+  const [workspaces, setWorkspaces] = useState([
+    // Workspace 1 (default layout)
+    {
+      name: "Default",
+      visibleElements: {
+        Map: true,
+        Orientation: true,
+        Trajectory: true,
+        Graphs: true,
+        Sidebar: true
+      }
+    },
+    // Workspace 2 (empty layout)
+    {
+      name: "Workspace 2",
+      visibleElements: {
+        Map: false,
+        Orientation: false,
+        Trajectory: false,
+        Graphs: false,
+        Sidebar: true
+      }
+    }
+  ]);
 
+  // Handle workspace switching
+  const handleSwitchWorkspace = (index) => {
+    setActiveWorkspace(index);
+  };
+
+  // Handle creating a new workspace
+  const handleCreateWorkspace = () => {
+    const newWorkspace = {
+      name: `Workspace ${workspaces.length + 1}`,
+      visibleElements: {
+        Map: false,
+        Orientation: false,
+        Trajectory: false,
+        Graphs: false,
+        Sidebar: true
+      }
+    };
+    
+    setWorkspaces([...workspaces, newWorkspace]);
+    setActiveWorkspace(workspaces.length); // Switch to the newly created workspace
+  };
+
+  // Current workspace's visible elements
+  const visibleElements = workspaces[activeWorkspace].visibleElements;
+
+  // Toggle element visibility for current workspace
   const toggleElement = (element) => {
-    setVisibleElements(prev => ({
-      ...prev,
-      [element]: !prev[element]
-    }));
+    const updatedWorkspaces = [...workspaces];
+    updatedWorkspaces[activeWorkspace].visibleElements[element] = 
+      !updatedWorkspaces[activeWorkspace].visibleElements[element];
+    setWorkspaces(updatedWorkspaces);
   };
 
   const handleSystemReset = () => {
@@ -109,6 +153,10 @@ function App() {
         battery={latestPacket.battery}
         visibleElements={visibleElements}
         toggleElement={toggleElement}
+        activeWorkspace={activeWorkspace}
+        workspaces={workspaces}
+        onSwitchWorkspace={handleSwitchWorkspace}
+        onCreateWorkspace={handleCreateWorkspace}
       />
 
       <div className="flex flex-row h-full font-mono overflow-hidden">
@@ -180,6 +228,14 @@ function App() {
               />
             )}
           </div>
+
+          {/* Show a message for empty workspace */}
+          {topRowElements.length === 0 && bottomRowElements.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full border-2 border-dashed border-gray-300 rounded-lg">
+              <h3 className="text-xl text-gray-500 font-medium mb-2">Empty Workspace</h3>
+              <p className="text-gray-400 mb-4">Use the Layout button to add elements to this workspace</p>
+            </div>
+          )}
         </div>
 
         {visibleElements.Sidebar && (
