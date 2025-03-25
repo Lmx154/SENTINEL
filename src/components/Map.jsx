@@ -36,7 +36,8 @@ const MapInvalidator = forwardRef((props, ref) => {
     return null;
 });
 
-function Map({ markers }) {
+// Update the component to accept style prop
+function Map({ markers, style }) {
     const mapRef = useRef(null);
     const [zoomLevel, setZoomLevel] = useState(13);
     const center = [33.501037, -99.338722]; // Fixed center point (your coordinates)
@@ -95,7 +96,7 @@ function Map({ markers }) {
     }, []);
 
     return (
-        <div className="flex-1 min-w-0" data-swapy-slot="1">
+        <div className="flex-1 min-w-0" data-swapy-slot="1" style={style}>
             <div data-swapy-item="a" className="border-2 border-[#201F1F] rounded-md flex flex-col h-full w-full overflow-hidden backdrop-blur-sm">
                 <div className="w-full bg-[#09090B] flex items-center py-1 px-2 border-b-2 border-[#201F1F] drag-handle cursor-move select-none" data-swapy-handle>
                     <p className="text-[#9CA3AF] text-lg">Map</p>
