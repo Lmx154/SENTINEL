@@ -11,7 +11,26 @@ import { useState, useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 
 function App() {
-  const [latestPacket, setLatestPacket] = useState({});
+  const [latestPacket, setLatestPacket] = useState({
+    packet_id: 0,
+    timestamp: "0000-00-00 00:00:00",
+    accel_x: 0,
+    accel_y: 0,
+    accel_z: 0,
+    gyro_x: 0,
+    gyro_y: 0,
+    gyro_z: 0,
+    temp: 0,
+    pressure: 0,
+    alt_bmp: 0,
+    mag_x: 0,
+    mag_y: 0,
+    mag_z: 0,
+    latitude: 0,
+    longitude: 0,
+    satellites: 0,
+    alt_gps: 0,
+  });
   const [packets, setPackets] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [packetReceived, setPacketReceived] = useState(false);
@@ -19,25 +38,24 @@ function App() {
   const handleSystemReset = () => {
     setPackets([]);
     setLatestPacket({
-      mission_time: "0",
-      satellites: 0,
-      connected: false,
-      rssi: 0,
-      battery: 0,
+      packet_id: 0,
+      timestamp: "0000-00-00 00:00:00",
+      accel_x: 0,
+      accel_y: 0,
+      accel_z: 0,
+      gyro_x: 0,
+      gyro_y: 0,
+      gyro_z: 0,
+      temp: 0,
+      pressure: 0,
+      alt_bmp: 0,
+      mag_x: 0,
+      mag_y: 0,
+      mag_z: 0,
       latitude: 0,
       longitude: 0,
-      altitude: 0,
-      velocity_x: 0,
-      velocity_y: 0,
-      velocity_z: 0,
-      acceleration_x: 0,
-      acceleration_y: 0,
-      acceleration_z: 0,
-      pitch: 0,
-      yaw: 0,
-      roll: 0,
-      minute: 0,
-      second: 0
+      satellites: 0,
+      alt_gps: 0,
     });
   };
 
@@ -68,11 +86,8 @@ function App() {
   return (
     <main id="main" className="w-screen h-screen bg-gray-100 flex flex-col text-black">
       <StatusBar
-        missionTime={latestPacket.mission_time}
+        timestamp={latestPacket.timestamp}
         satellites={latestPacket.satellites}
-        connected={latestPacket.connected}
-        RSSI={latestPacket.rssi}
-        battery={latestPacket.battery}
       />
 
       <div className="flex flex-row h-full font-mono overflow-hidden">
@@ -80,15 +95,15 @@ function App() {
           <div className="flex flex-row gap-2 w-full h-[55%] min-h-0">
             <Map
               markers={packets.map(packet => ({
-                id: packet.id,
+                id: packet.packet_id,
                 position: [packet.latitude, packet.longitude]
               }))}
             />
             <Orientation
               rotation={{
-                pitch: latestPacket.pitch,
-                yaw: latestPacket.yaw,
-                roll: latestPacket.roll
+                pitch: latestPacket.gyro_x,
+                yaw: latestPacket.gyro_z,
+                roll: latestPacket.gyro_y,
               }}
             />
           </div>
@@ -96,37 +111,25 @@ function App() {
           <div className="flex flex-row gap-2 w-full flex-1 min-h-0">
             <FlightTrajectory
               points={packets.map(packet => ({
-                id: packet.id,
+                id: packet.packet_id,
                 position: [packet.latitude, packet.longitude],
-                altitude: packet.altitude
+                altitude: packet.alt_bmp
               }))}
               packetRecieved={packetReceived}
               setPacketRecieved={setPacketReceived}
             />
             <Graphs
-              velocity={packets.map(packet => ({
-                name: packet.id,
-                minute: packet.minute,
-                second: packet.second,
-                velocityX: packet.velocity_x,
-                velocityY: packet.velocity_y,
-                velocityZ: packet.velocity_z
-              }))}
               acceleration={packets.map(packet => ({
-                name: packet.id,
-                minute: packet.minute,
-                second: packet.second,
-                accelerationX: packet.acceleration_x,
-                accelerationY: packet.acceleration_y,
-                accelerationZ: packet.acceleration_z
+                name: packet.packet_id,
+                accelerationX: packet.accel_x,
+                accelerationY: packet.accel_y,
+                accelerationZ: packet.accel_z
               }))}
               rotation={packets.map(packet => ({
-                name: packet.id,
-                minute: packet.minute,
-                second: packet.second,
-                pitch: packet.pitch,
-                yaw: packet.yaw,
-                roll: packet.roll
+                name: packet.packet_id,
+                pitch: packet.gyro_x,
+                yaw: packet.gyro_z,
+                roll: packet.gyro_y,
               }))}
             />
           </div>

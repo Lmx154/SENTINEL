@@ -51,7 +51,10 @@ pub async fn open_serial(
 
     // 3) Attempt to open the port
     match serialport::new(&port_name, baud_rate)
-        .timeout(Duration::from_millis(0)) // No timeout for continuous streaming
+        // Explicitly set no flow control
+        .flow_control(serialport::FlowControl::None) 
+        // Set a small timeout instead of 0
+        .timeout(Duration::from_millis(100)) 
         .open()
     {
         Ok(port) => {

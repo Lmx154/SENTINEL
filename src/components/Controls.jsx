@@ -104,8 +104,6 @@ export const useSerialPorts = (setConsoleArray, isRunning) => {
         baudRate: 115200 
       });
       setConsoleArray(prev => [...prev, result]);
-      // Now kick off the parser thread
-      await invoke('rt_parsed_stream');
       return { success: true };
     } catch (error) {
       setConsoleArray(prev => [...prev, `Failed to open port: ${error}`]);
