@@ -8,7 +8,6 @@ import Graphs from "./components/Graphs";
 import Orientation from "./components/Orientation";
 import Map from "./components/Map";
 import { useState, useEffect } from 'react';
-import { listen } from '@tauri-apps/api/event';
 
 function App() {
   const [latestPacket, setLatestPacket] = useState({
@@ -58,29 +57,28 @@ function App() {
       alt_gps: 0,
     });
   };
-
   useEffect(() => {
-    const unlisten = [];
+    // Listen for telemetry data from WebSocket client
+    const handleTelemetryPacket = (event) => {
+      const packet = event.detail.payload;
+      setPackets(prev => [...prev, packet]);
+      setLatestPacket(packet);
+      setPacketReceived(true);
+      setIsRunning(true);
+    };
 
-    async function setupListeners() {
-      unlisten.push(
-        await listen('telemetry-packet', event => {
-          setPackets(prev => [...prev, event.payload]);
-          setLatestPacket(event.payload);
-          setPacketReceived(true);
-          setIsRunning(true);
-        })
-      );
+    const handleSerialDisconnected = (event) => {
+      setIsRunning(false);
+    };
 
-      unlisten.push(
-        await listen('serial-disconnected', () => {
-          setIsRunning(false);
-        })
-      );
-    }
+    // Add event listeners for custom events
+    window.addEventListener('telemetry-packet', handleTelemetryPacket);
+    window.addEventListener('serial-disconnected', handleSerialDisconnected);
 
-    setupListeners();
-    return () => unlisten.forEach(fn => fn());
+    return () => {
+      window.removeEventListener('telemetry-packet', handleTelemetryPacket);
+      window.removeEventListener('serial-disconnected', handleSerialDisconnected);
+    };
   }, []);
 
   return (

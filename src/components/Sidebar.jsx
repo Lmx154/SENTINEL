@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { cn } from "../utils";
 import { motion, useMotionValue, AnimatePresence } from "framer-motion";
 import Logo from "../assets/Logo.png";
-import { useSerialPorts, useLiveDataStream } from './Controls';
+import { useSerialPorts, useLiveDataStream } from './ControlsWebSocket';
 
 function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
     const [activeTab, setActiveTab] = useState("console");
@@ -158,15 +158,16 @@ function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
                             className="absolute inset-0"
                         >
                             <div className="flex flex-col gap-2 p-4">
-                                <div className="flex flex-row gap-2">
-                                    <select 
+                                <div className="flex flex-row gap-2">                                    <select 
                                         className="flex-1 bg-gray-200 text-gray-700 py-2 px-4"
                                         value={selectedPort}
                                         onChange={(e) => setSelectedPort(e.target.value)}
                                     >
                                         <option value="" disabled>Select a port</option>
                                         {ports.map(port => (
-                                            <option key={port} value={port}>{port}</option>
+                                            <option key={port.port || port} value={port.port || port}>
+                                                {port.port || port} {port.description ? `- ${port.description}` : ''}
+                                            </option>
                                         ))}
                                     </select>
                                     <button 
