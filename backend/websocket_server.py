@@ -9,8 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 import json
 import asyncio
 import logging
+import time
 from typing import Dict, Set
 from serial_operations import serial_manager
+from data_parser import parser_manager, process_serial_data
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -29,6 +31,9 @@ app.add_middleware(
 
 # Store active WebSocket connections
 active_connections: Set[WebSocket] = set()
+
+# Store the main event loop for thread-safe access
+main_loop = None
 
 class WebSocketManager:
     def __init__(self):
@@ -65,21 +70,52 @@ class WebSocketManager:
 
 manager = WebSocketManager()
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize the main event loop reference for thread-safe access"""
+    global main_loop
+    main_loop = asyncio.get_event_loop()
+    
+    # Register the callback with the parser manager
+    parser_manager.add_data_callback(data_callback_for_broadcast)
+    
+    logger.info("Server startup complete - main event loop initialized and data callback registered")
+
+def data_callback_for_broadcast(parsed_data: dict):
+    """Callback function for parsed data from the parser manager"""
+    if parsed_data and main_loop:
+        # Send structured telemetry data
+        telemetry_message = {
+            "type": "telemetry_data",
+            "port": parsed_data.get("_source_port", "unknown"),
+            "data": parsed_data,
+            "timestamp": time.time()
+        }
+        
+        try:
+            # Use asyncio.run_coroutine_threadsafe to safely call from thread
+            asyncio.run_coroutine_threadsafe(manager.broadcast(telemetry_message), main_loop)
+        except Exception as e:
+            logger.error(f"Error broadcasting parsed telemetry data: {e}")
+
 def serial_data_callback(port: str, data: str):
-    """Callback function for serial data - broadcasts to all connected clients"""
-    message = {
-        "type": "serial_data",
+    """Callback function for serial data - sends raw data for console and processes through parser"""
+    # Send raw data for console display
+    console_message = {
+        "type": "console_data",
         "port": port,
         "data": data,
-        "timestamp": asyncio.get_event_loop().time()
+        "timestamp": time.time()
     }
     
-    # Schedule the broadcast in the event loop
     try:
-        loop = asyncio.get_event_loop()
-        loop.create_task(manager.broadcast(message))
+        # Use asyncio.run_coroutine_threadsafe to safely call from thread
+        asyncio.run_coroutine_threadsafe(manager.broadcast(console_message), main_loop)
     except Exception as e:
-        logger.error(f"Error broadcasting serial data: {e}")
+        logger.error(f"Error broadcasting console data: {e}")
+    
+    # Process through the parser manager (which will call our data_callback_for_broadcast)
+    process_serial_data(port, data)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -298,8 +334,7 @@ async def handle_serial_command(message: dict) -> dict:
                     "type": "response",
                     "command": "get_port_info",
                     "success": False,
-                    "error": "Port parameter is required"
-                }
+                    "error": "Port parameter is required"            }
             
             info = serial_manager.get_port_info(port)
             
@@ -321,6 +356,111 @@ async def handle_serial_command(message: dict) -> dict:
                 "command": "close_all_ports",
                 "success": success
             }
+        
+        # Data Parser Management Commands
+        elif command == "get_parser_info":
+            info = parser_manager.get_parser_info()
+            
+            return {
+                "id": request_id,
+                "type": "response",
+                "command": "get_parser_info",
+                "success": True,
+                "data": info
+            }
+        
+        elif command == "set_active_parser":
+            parser_name = message.get("parser_name")
+            
+            if not parser_name:
+                return {
+                    "id": request_id,
+                    "type": "response",
+                    "command": "set_active_parser",
+                    "success": False,
+                    "error": "parser_name parameter is required"
+                }
+            
+            success = parser_manager.set_active_parser(parser_name)
+            
+            return {
+                "id": request_id,
+                "type": "response",
+                "command": "set_active_parser",
+                "success": success,
+                "parser_name": parser_name
+            }
+        
+        elif command == "enable_auto_detection":
+            parser_manager.enable_auto_detection()
+            
+            return {
+                "id": request_id,
+                "type": "response",
+                "command": "enable_auto_detection",
+                "success": True
+            }
+        
+        elif command == "add_custom_parser":
+            delimiter = message.get("delimiter")
+            field_names = message.get("field_names", [])
+            parser_name = message.get("parser_name")
+            
+            if not delimiter:
+                return {
+                    "id": request_id,
+                    "type": "response",
+                    "command": "add_custom_parser",
+                    "success": False,
+                    "error": "delimiter parameter is required"
+                }
+            
+            try:
+                from data_parser import add_custom_parser
+                add_custom_parser(delimiter, field_names, parser_name)
+                
+                return {
+                    "id": request_id,
+                    "type": "response",
+                    "command": "add_custom_parser",
+                    "success": True,
+                    "delimiter": delimiter,
+                    "field_names": field_names,
+                    "parser_name": parser_name
+                }
+            except Exception as e:
+                return {
+                    "id": request_id,
+                    "type": "response",
+                    "command": "add_custom_parser",
+                    "success": False,
+                    "error": str(e)
+                }
+        
+        elif command == "configure_sentinel_parser":
+            field_mapping = message.get("field_mapping", {})
+            
+            try:
+                from data_parser import configure_sentinel_parser
+                # Convert string keys to integers
+                int_field_mapping = {int(k): v for k, v in field_mapping.items()}
+                configure_sentinel_parser(int_field_mapping)
+                
+                return {
+                    "id": request_id,
+                    "type": "response",
+                    "command": "configure_sentinel_parser",
+                    "success": True,
+                    "field_mapping": int_field_mapping
+                }
+            except Exception as e:
+                return {
+                    "id": request_id,
+                    "type": "response",
+                    "command": "configure_sentinel_parser",
+                    "success": False,
+                    "error": str(e)
+                }
         
         else:
             return {

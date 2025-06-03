@@ -56,18 +56,85 @@ export const useSerialPorts = (setConsoleArray, isRunning) => {
   const [ports, setPorts] = useState([]);
   const [parsedData, setParsedData] = useState(null);
   const [selectedPort, setSelectedPort] = useState('');
-
   useEffect(() => {
-    // Listen for serial data from WebSocket
+    // Listen for telemetry data from WebSocket (parsed by backend)
+    const handleTelemetryData = (data) => {
+      if (data.data) {
+        const rawData = data.data;
+        
+        // Debug: Log the raw data structure to understand what fields are available
+        console.log('Raw telemetry data received:', rawData);
+        console.log('Available fields:', Object.keys(rawData));        // Convert the parsed data to the format expected by the frontend
+        const telemetryData = {
+          packet_id: Date.now(), // Generate a unique ID
+          timestamp: rawData.timestamp ? 
+            (typeof rawData.timestamp === 'number' ? 
+              new Date(rawData.timestamp * 1000).toISOString().replace('T', ' ').split('.')[0] : 
+              rawData.timestamp) : 
+            (rawData.date && rawData.time ? rawData.date + ' ' + rawData.time : 
+              new Date().toISOString().replace('T', ' ').split('.')[0]),
+          
+          // Acceleration - backend already converts to g-force, then convert to m/s²
+          accel_x: (rawData.accel_x_g !== undefined ? rawData.accel_x_g * 9.81 : 0),
+          accel_y: (rawData.accel_y_g !== undefined ? rawData.accel_y_g * 9.81 : 0),
+          accel_z: (rawData.accel_z_g !== undefined ? rawData.accel_z_g * 9.81 : 0),
+          
+          // Gyroscope - backend already converts to degrees per second
+          gyro_x: rawData.gyro_x_dps !== undefined ? rawData.gyro_x_dps : 0,
+          gyro_y: rawData.gyro_y_dps !== undefined ? rawData.gyro_y_dps : 0,
+          gyro_z: rawData.gyro_z_dps !== undefined ? rawData.gyro_z_dps : 0,
+          
+          // Magnetometer - backend converts to microTesla
+          mag_x: rawData.mag_x_ut !== undefined ? rawData.mag_x_ut : 0,
+          mag_y: rawData.mag_y_ut !== undefined ? rawData.mag_y_ut : 0,
+          mag_z: rawData.mag_z_ut !== undefined ? rawData.mag_z_ut : 0,
+          
+          // GPS coordinates - backend already converts to degrees
+          latitude: rawData.gps_lat_deg !== undefined ? rawData.gps_lat_deg : 0,
+          longitude: rawData.gps_lon_deg !== undefined ? rawData.gps_lon_deg : 0,
+          
+          // Other fields - using the exact field names from backend parser
+          satellites: rawData.gps_satellites || 0,
+          temp: rawData.temperature_c !== undefined ? rawData.temperature_c : 0,
+          pressure: rawData.pressure !== undefined ? rawData.pressure : 1013.25,
+          alt_bmp: rawData.altitude_m !== undefined ? rawData.altitude_m : 0,
+          alt_gps: rawData.altitude_m !== undefined ? rawData.altitude_m : 0, // Same as barometric for now
+        };
+        
+        // Debug: Log the final telemetry data being sent
+        console.log('Final telemetry data being sent:', telemetryData);
+        
+        setParsedData(telemetryData);
+        
+        // Create events for App.jsx to listen to
+        const event = new CustomEvent('telemetry-packet', {
+          detail: { payload: telemetryData }
+        });
+        console.log('Dispatching telemetry-packet event:', event);
+        window.dispatchEvent(event);
+      }
+    };
+
+    // Listen for console data from WebSocket
+    const handleConsoleData = (data) => {
+      if (data.data && setConsoleArray) {
+        setConsoleArray(prev => [...prev, data.data]);
+      }
+    };
+
+    // Listen for legacy serial data (for backward compatibility)
     const handleSerialData = (data) => {
-      // Convert WebSocket serial data to match the expected format
+      // Handle raw serial data if needed for console display
+      if (data.data && setConsoleArray) {
+        setConsoleArray(prev => [...prev, data.data]);
+      }
+      
+      // Try to parse legacy format if no structured data is available
       if (data.data) {
         try {
-          // Try to parse the serial data if it's CSV format
           const lines = data.data.split('\n');
           lines.forEach(line => {
             if (line.trim()) {
-              // Parse CSV data similar to how the Rust backend does it
               const fields = line.trim().split(',');
               if (fields.length >= 17) {
                 const telemetryData = {
@@ -91,49 +158,64 @@ export const useSerialPorts = (setConsoleArray, isRunning) => {
                 };
                 setParsedData(telemetryData);
                 
-                // Create events similar to what Tauri emits
                 const event = new CustomEvent('telemetry-packet', {
                   detail: { payload: telemetryData }
                 });
                 window.dispatchEvent(event);
-                
-                const updateEvent = new CustomEvent('telemetry-update', {
-                  detail: { payload: telemetryData }
-                });
-                window.dispatchEvent(updateEvent);
               }
             }
           });
         } catch (error) {
-          console.error('Error parsing serial data:', error);
+          console.error('Error parsing legacy serial data:', error);
         }
       }
     };
 
+    // Register message handlers
+    wsClient.onMessage('telemetry_data', handleTelemetryData);
+    wsClient.onMessage('console_data', handleConsoleData);
     wsClient.onMessage('serial_data', handleSerialData);
 
     return () => {
+      wsClient.offMessage('telemetry_data', handleTelemetryData);
+      wsClient.offMessage('console_data', handleConsoleData);
       wsClient.offMessage('serial_data', handleSerialData);
     };
   }, []);
-
-  // Auto-refresh ports on component mount
+  // Auto-refresh ports on component mount with WebSocket connection check
   useEffect(() => {
     const autoRefresh = async () => {
       if (!isRunning) {
-        try {
-          const portList = await wsClient.listSerialPorts();
-          setPorts(portList);
-          if (portList.length > 0 && !selectedPort) {
-            const firstPortName = portList[0].port || portList[0];
-            setSelectedPort(firstPortName);
+        // Wait for WebSocket connection before trying to list ports
+        if (!wsClient.isConnected) {
+          console.log('Waiting for WebSocket connection...');
+          // Wait up to 5 seconds for connection
+          for (let i = 0; i < 50; i++) {
+            if (wsClient.isConnected) break;
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
-        } catch (error) {
-          console.error('Failed to auto-refresh ports:', error);
+        }
+        
+        if (wsClient.isConnected) {
+          try {
+            const portList = await wsClient.listSerialPorts();
+            setPorts(portList);
+            if (portList.length > 0 && !selectedPort) {
+              const firstPortName = portList[0].port || portList[0];
+              setSelectedPort(firstPortName);
+            }
+          } catch (error) {
+            console.error('Failed to auto-refresh ports:', error);
+          }
+        } else {
+          console.warn('WebSocket not connected, skipping auto-refresh');
         }
       }
     };
-    autoRefresh();
+    
+    // Delay the auto-refresh to allow WebSocket to connect
+    const timeoutId = setTimeout(autoRefresh, 1000);
+    return () => clearTimeout(timeoutId);
   }, []); // Only run once on mount
   const refreshPorts = useCallback(async () => {
     if (isRunning) {

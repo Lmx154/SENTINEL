@@ -61,7 +61,6 @@ class WebSocketClient {  constructor() {
       }, this.reconnectDelay * this.reconnectAttempts);
     }
   }
-
   handleMessage(message) {
     if (message.type === 'response' && message.id) {
       // Handle command responses
@@ -73,17 +72,20 @@ class WebSocketClient {  constructor() {
         } else {
           resolver.reject(new Error(message.error || 'Unknown error'));
         }
-      }    } else if (message.type === 'serial_data') {
-      // Handle incoming serial data
+      }    } else if (message.type === 'telemetry_data') {
+      // Handle parsed telemetry data from the backend parser
+      this.notifyHandlers('telemetry_data', message);
+    } else if (message.type === 'console_data') {
+      // Handle raw console data for display
+      this.notifyHandlers('console_data', message);
+    } else if (message.type === 'serial_data') {
+      // Handle legacy serial data format (for backward compatibility)
       this.notifyHandlers('serial_data', message);
       
       // Try to parse the data as a telemetry packet
       try {
-        // Assuming the data comes in a specific format
-        // You may need to adjust this based on your actual data format
         const telemetryData = this.parseSerialData(message.data);
         if (telemetryData) {
-          // Emit custom event for App.jsx to listen to
           window.dispatchEvent(new CustomEvent('telemetry-packet', { 
             detail: { payload: telemetryData } 
           }));
@@ -244,11 +246,64 @@ class WebSocketClient {  constructor() {
       throw new Error(`Failed to write to serial port: ${error.message}`);
     }
   }
-
   async startParsedStream() {
     // The Python backend automatically streams data when a port is opened
     // So this is essentially a no-op, but we'll return success
     return 'Live data stream started successfully';
+  }
+
+  // Parser Management Methods
+  async getParserInfo() {
+    try {
+      const response = await this.sendCommand('get_parser_info');
+      return response.success ? response.data : null;
+    } catch (error) {
+      throw new Error(`Failed to get parser info: ${error.message}`);
+    }
+  }
+
+  async setActiveParser(parserName) {
+    try {
+      const response = await this.sendCommand('set_active_parser', {
+        parser_name: parserName
+      });
+      return response.success ? `Parser set to ${parserName}` : response.error;
+    } catch (error) {
+      throw new Error(`Failed to set active parser: ${error.message}`);
+    }
+  }
+
+  async enableAutoDetection() {
+    try {
+      const response = await this.sendCommand('enable_auto_detection');
+      return response.success ? 'Auto-detection enabled' : response.error;
+    } catch (error) {
+      throw new Error(`Failed to enable auto-detection: ${error.message}`);
+    }
+  }
+
+  async addCustomParser(delimiter, fieldNames, parserName = null) {
+    try {
+      const response = await this.sendCommand('add_custom_parser', {
+        delimiter: delimiter,
+        field_names: fieldNames,
+        parser_name: parserName
+      });
+      return response.success ? `Custom parser added: ${parserName || delimiter}` : response.error;
+    } catch (error) {
+      throw new Error(`Failed to add custom parser: ${error.message}`);
+    }
+  }
+
+  async configureSentinelParser(fieldMapping) {
+    try {
+      const response = await this.sendCommand('configure_sentinel_parser', {
+        field_mapping: fieldMapping
+      });
+      return response.success ? 'SENTINEL parser configured' : response.error;
+    } catch (error) {
+      throw new Error(`Failed to configure SENTINEL parser: ${error.message}`);
+    }
   }
 }
 

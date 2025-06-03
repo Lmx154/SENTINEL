@@ -56,11 +56,12 @@ function App() {
       satellites: 0,
       alt_gps: 0,
     });
-  };
-  useEffect(() => {
+  };  useEffect(() => {
     // Listen for telemetry data from WebSocket client
     const handleTelemetryPacket = (event) => {
+      console.log('App.jsx received telemetry-packet event:', event);
       const packet = event.detail.payload;
+      console.log('Packet payload:', packet);
       setPackets(prev => [...prev, packet]);
       setLatestPacket(packet);
       setPacketReceived(true);
@@ -90,12 +91,21 @@ function App() {
 
       <div className="flex flex-row h-full font-mono overflow-hidden">
         <div className="flex-1 flex flex-col p-2 gap-2">
-          <div className="flex flex-row gap-2 w-full h-[55%] min-h-0">
-            <Map
-              markers={packets.map(packet => ({
-                id: packet.packet_id,
-                position: [packet.latitude, packet.longitude]
-              }))}
+          <div className="flex flex-row gap-2 w-full h-[55%] min-h-0">            <Map
+              markers={packets
+                .filter(packet => {
+                  // Filter out invalid GPS coordinates (1,1 means no GPS lock)
+                  const lat = packet.latitude || packet.gps_lat_deg;
+                  const lon = packet.longitude || packet.gps_lon_deg;
+                  return lat && lon && 
+                         Math.abs(lat) > 0.0001 && Math.abs(lon) > 0.0001 && // Not essentially 0,0
+                         lat !== 1 && lon !== 1; // Not the no-lock indicator
+                })
+                .map(packet => ({
+                  id: packet.packet_id,
+                  position: [packet.latitude || packet.gps_lat_deg, packet.longitude || packet.gps_lon_deg]
+                }))
+              }
             />
             <Orientation
               rotation={{
@@ -106,13 +116,22 @@ function App() {
             />
           </div>
 
-          <div className="flex flex-row gap-2 w-full flex-1 min-h-0">
-            <FlightTrajectory
-              points={packets.map(packet => ({
-                id: packet.packet_id,
-                position: [packet.latitude, packet.longitude],
-                altitude: packet.alt_bmp
-              }))}
+          <div className="flex flex-row gap-2 w-full flex-1 min-h-0">            <FlightTrajectory
+              points={packets
+                .filter(packet => {
+                  // Filter out invalid GPS coordinates
+                  const lat = packet.latitude || packet.gps_lat_deg;
+                  const lon = packet.longitude || packet.gps_lon_deg;
+                  return lat && lon && 
+                         Math.abs(lat) > 0.0001 && Math.abs(lon) > 0.0001 &&
+                         lat !== 1 && lon !== 1;
+                })
+                .map(packet => ({
+                  id: packet.packet_id,
+                  position: [packet.latitude || packet.gps_lat_deg, packet.longitude || packet.gps_lon_deg],
+                  altitude: packet.alt_bmp || packet.altitude_m
+                }))
+              }
               packetRecieved={packetReceived}
               setPacketRecieved={setPacketReceived}
             />
