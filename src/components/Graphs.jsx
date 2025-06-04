@@ -48,15 +48,14 @@ function Graphs({ velocity, acceleration, rotation }) {
                                             top: 8,
                                             right: 20
                                         }}
-                                    >
-                                        <CartesianGrid strokeDasharray="3 3" />
+                                    >                                        <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="name" angle={-45} textAnchor="end" interval={8} />
-                                        <YAxis />
+                                        <YAxis label={{ value: 'Degrees', angle: -90, position: 'insideLeft' }} />
                                         <Tooltip />
                                         <Legend wrapperStyle={{ paddingTop: "20px" }} />
-                                        <Line isAnimationActive={false} type="monotone" dataKey="pitch" stroke="#84cc16" fill="#84cc16" />
-                                        <Line isAnimationActive={false} type="monotone" dataKey="yaw" stroke="#dc2626" fill="#dc2626" />
-                                        <Line isAnimationActive={false} type="monotone" dataKey="roll" stroke="#facc15" fill="#facc15" />
+                                        <Line isAnimationActive={false} type="monotone" dataKey="pitch" stroke="#84cc16" fill="#84cc16" name="Pitch (°)" />
+                                        <Line isAnimationActive={false} type="monotone" dataKey="roll" stroke="#dc2626" fill="#dc2626" name="Roll (°)" />
+                                        <Line isAnimationActive={false} type="monotone" dataKey="yaw" stroke="#facc15" fill="#facc15" name="Yaw (°)" />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>

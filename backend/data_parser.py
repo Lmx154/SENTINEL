@@ -14,6 +14,7 @@ import logging
 from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 from abc import ABC, abstractmethod
+from sensor_fusion import process_telemetry_packet, sensor_fusion, configure_sensor_fusion
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -152,12 +153,14 @@ class ArmedStateTelemetryParser(DataParserBase):
                     parsed_data["gps_lon_1e7"], 
                     parsed_data["gps_satellites"]
                 )
-            
-            # Add metadata
+              # Add metadata
             parsed_data["_parser"] = self.format_name
             parsed_data["_timestamp_parsed"] = datetime.now().isoformat()
             parsed_data["_raw_data"] = raw_data
             parsed_data["_state"] = "ARMED"
+            
+            # Process through sensor fusion to get orientation
+            parsed_data = process_telemetry_packet(parsed_data)
             
             return parsed_data
             

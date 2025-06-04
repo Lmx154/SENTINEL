@@ -13,6 +13,7 @@ import time
 from typing import Dict, Set
 from serial_operations import serial_manager
 from data_parser import parser_manager, process_serial_data
+from sensor_fusion import process_telemetry_packet, sensor_fusion, configure_sensor_fusion
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -84,7 +85,7 @@ async def startup_event():
 def data_callback_for_broadcast(parsed_data: dict):
     """Callback function for parsed data from the parser manager"""
     if parsed_data and main_loop:
-        # Send structured telemetry data
+        # The parsed_data now includes orientation data from sensor fusion
         telemetry_message = {
             "type": "telemetry_data",
             "port": parsed_data.get("_source_port", "unknown"),
@@ -93,7 +94,6 @@ def data_callback_for_broadcast(parsed_data: dict):
         }
         
         try:
-            # Use asyncio.run_coroutine_threadsafe to safely call from thread
             asyncio.run_coroutine_threadsafe(manager.broadcast(telemetry_message), main_loop)
         except Exception as e:
             logger.error(f"Error broadcasting parsed telemetry data: {e}")
@@ -426,8 +426,7 @@ async def handle_serial_command(message: dict) -> dict:
                     "success": True,
                     "delimiter": delimiter,
                     "field_names": field_names,
-                    "parser_name": parser_name
-                }
+                    "parser_name": parser_name                }
             except Exception as e:
                 return {
                     "id": request_id,
@@ -458,6 +457,54 @@ async def handle_serial_command(message: dict) -> dict:
                     "id": request_id,
                     "type": "response",
                     "command": "configure_sentinel_parser",
+                    "success": False,
+                    "error": str(e)
+                }
+        
+        elif command == "configure_sensor_fusion":
+            use_magnetometer = message.get("use_magnetometer", True)
+            madgwick_beta = message.get("madgwick_beta", 0.1)
+            smoothing_window = message.get("smoothing_window", 5)
+            
+            try:
+                configure_sensor_fusion(
+                    use_magnetometer=use_magnetometer,
+                    madgwick_beta=madgwick_beta,
+                    smoothing_window=smoothing_window
+                )
+                
+                return {
+                    "id": request_id,
+                    "type": "response",
+                    "command": "configure_sensor_fusion",
+                    "success": True,
+                    "message": "Sensor fusion configured successfully"
+                }
+            except Exception as e:
+                return {
+                    "id": request_id,
+                    "type": "response",
+                    "command": "configure_sensor_fusion",
+                    "success": False,
+                    "error": str(e)
+                }
+        
+        elif command == "reset_sensor_fusion":
+            try:
+                sensor_fusion.reset()
+                
+                return {
+                    "id": request_id,
+                    "type": "response",
+                    "command": "reset_sensor_fusion",
+                    "success": True,
+                    "message": "Sensor fusion reset successfully"
+                }
+            except Exception as e:
+                return {
+                    "id": request_id,
+                    "type": "response",
+                    "command": "reset_sensor_fusion",
                     "success": False,
                     "error": str(e)
                 }

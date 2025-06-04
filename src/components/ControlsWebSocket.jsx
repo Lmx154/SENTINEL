@@ -66,7 +66,7 @@ export const useSerialPorts = (setConsoleArray, isRunning) => {
         console.log('Raw telemetry data received:', rawData);
         console.log('Available fields:', Object.keys(rawData));        // Convert the parsed data to the format expected by the frontend
         const telemetryData = {
-          packet_id: Date.now(), // Generate a unique ID
+          packet_id: Date.now(),
           timestamp: rawData.timestamp ? 
             (typeof rawData.timestamp === 'number' ? 
               new Date(rawData.timestamp * 1000).toISOString().replace('T', ' ').split('.')[0] : 
@@ -79,10 +79,29 @@ export const useSerialPorts = (setConsoleArray, isRunning) => {
           accel_y: (rawData.accel_y_g !== undefined ? rawData.accel_y_g * 9.81 : 0),
           accel_z: (rawData.accel_z_g !== undefined ? rawData.accel_z_g * 9.81 : 0),
           
-          // Gyroscope - backend already converts to degrees per second
-          gyro_x: rawData.gyro_x_dps !== undefined ? rawData.gyro_x_dps : 0,
-          gyro_y: rawData.gyro_y_dps !== undefined ? rawData.gyro_y_dps : 0,
-          gyro_z: rawData.gyro_z_dps !== undefined ? rawData.gyro_z_dps : 0,
+          // Use the sensor fusion orientation data if available, otherwise fall back to raw gyro
+          gyro_x: rawData.orientation_pitch !== undefined ? rawData.orientation_pitch : 
+                  (rawData.gyro_x_dps !== undefined ? rawData.gyro_x_dps : 0),
+          gyro_y: rawData.orientation_roll !== undefined ? rawData.orientation_roll : 
+                  (rawData.gyro_y_dps !== undefined ? rawData.gyro_y_dps : 0),
+          gyro_z: rawData.orientation_yaw !== undefined ? rawData.orientation_yaw : 
+                  (rawData.gyro_z_dps !== undefined ? rawData.gyro_z_dps : 0),
+          
+          // Store both raw gyro and orientation data
+          gyro_raw_x: rawData.gyro_x_dps !== undefined ? rawData.gyro_x_dps : 0,
+          gyro_raw_y: rawData.gyro_y_dps !== undefined ? rawData.gyro_y_dps : 0,
+          gyro_raw_z: rawData.gyro_z_dps !== undefined ? rawData.gyro_z_dps : 0,
+          
+          // Orientation angles from sensor fusion
+          orientation_roll: rawData.orientation_roll || 0,
+          orientation_pitch: rawData.orientation_pitch || 0,
+          orientation_yaw: rawData.orientation_yaw || 0,
+          
+          // Quaternion data if available
+          quaternion_w: rawData.quaternion_w || 1,
+          quaternion_x: rawData.quaternion_x || 0,
+          quaternion_y: rawData.quaternion_y || 0,
+          quaternion_z: rawData.quaternion_z || 0,
           
           // Magnetometer - backend converts to microTesla
           mag_x: rawData.mag_x_ut !== undefined ? rawData.mag_x_ut : 0,
@@ -93,12 +112,12 @@ export const useSerialPorts = (setConsoleArray, isRunning) => {
           latitude: rawData.gps_lat_deg !== undefined ? rawData.gps_lat_deg : 0,
           longitude: rawData.gps_lon_deg !== undefined ? rawData.gps_lon_deg : 0,
           
-          // Other fields - using the exact field names from backend parser
+          // Other fields
           satellites: rawData.gps_satellites || 0,
           temp: rawData.temperature_c !== undefined ? rawData.temperature_c : 0,
           pressure: rawData.pressure !== undefined ? rawData.pressure : 1013.25,
           alt_bmp: rawData.altitude_m !== undefined ? rawData.altitude_m : 0,
-          alt_gps: rawData.altitude_m !== undefined ? rawData.altitude_m : 0, // Same as barometric for now
+          alt_gps: rawData.altitude_m !== undefined ? rawData.altitude_m : 0,
         };
         
         // Debug: Log the final telemetry data being sent

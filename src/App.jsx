@@ -9,8 +9,7 @@ import Orientation from "./components/Orientation";
 import Map from "./components/Map";
 import { useState, useEffect } from 'react';
 
-function App() {
-  const [latestPacket, setLatestPacket] = useState({
+function App() {  const [latestPacket, setLatestPacket] = useState({
     packet_id: 0,
     timestamp: "0000-00-00 00:00:00",
     accel_x: 0,
@@ -19,6 +18,16 @@ function App() {
     gyro_x: 0,
     gyro_y: 0,
     gyro_z: 0,
+    gyro_raw_x: 0,
+    gyro_raw_y: 0,
+    gyro_raw_z: 0,
+    orientation_roll: 0,
+    orientation_pitch: 0,
+    orientation_yaw: 0,
+    quaternion_w: 1,
+    quaternion_x: 0,
+    quaternion_y: 0,
+    quaternion_z: 0,
     temp: 0,
     pressure: 0,
     alt_bmp: 0,
@@ -29,7 +38,7 @@ function App() {
     longitude: 0,
     satellites: 0,
     alt_gps: 0,
-  });  const [packets, setPackets] = useState([]);
+  });const [packets, setPackets] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [packetReceived, setPacketReceived] = useState(false);
 
@@ -55,8 +64,7 @@ function App() {
   };
 
   const handleSystemReset = () => {
-    setPackets([]);
-    setLatestPacket({
+    setPackets([]);    setLatestPacket({
       packet_id: 0,
       timestamp: "0000-00-00 00:00:00",
       accel_x: 0,
@@ -65,6 +73,16 @@ function App() {
       gyro_x: 0,
       gyro_y: 0,
       gyro_z: 0,
+      gyro_raw_x: 0,
+      gyro_raw_y: 0,
+      gyro_raw_z: 0,
+      orientation_roll: 0,
+      orientation_pitch: 0,
+      orientation_yaw: 0,
+      quaternion_w: 1,
+      quaternion_x: 0,
+      quaternion_y: 0,
+      quaternion_z: 0,
       temp: 0,
       pressure: 0,
       alt_bmp: 0,
@@ -132,12 +150,17 @@ function App() {
                   position: [packet.latitude || packet.gps_lat_deg, packet.longitude || packet.gps_lon_deg]
                 }))
               }
-            />
-            <Orientation
+            />            <Orientation
               rotation={{
-                pitch: latestPacket.gyro_x,
-                yaw: latestPacket.gyro_z,
-                roll: latestPacket.gyro_y,
+                pitch: latestPacket.orientation_pitch || latestPacket.gyro_x,
+                roll: latestPacket.orientation_roll || latestPacket.gyro_y,
+                yaw: latestPacket.orientation_yaw || latestPacket.gyro_z,
+              }}
+              quaternion={{
+                w: latestPacket.quaternion_w || 1,
+                x: latestPacket.quaternion_x || 0,
+                y: latestPacket.quaternion_y || 0,
+                z: latestPacket.quaternion_z || 0,
               }}
             />
           </div>
@@ -172,12 +195,11 @@ function App() {
                 accelerationX: packet.accel_x,
                 accelerationY: packet.accel_y,
                 accelerationZ: packet.accel_z
-              }))}
-              rotation={packets.map(packet => ({
+              }))}              rotation={packets.map(packet => ({
                 name: formatChartTimestamp(packet.timestamp),
-                pitch: packet.gyro_x,
-                yaw: packet.gyro_z,
-                roll: packet.gyro_y,
+                pitch: packet.orientation_pitch || packet.gyro_x,
+                roll: packet.orientation_roll || packet.gyro_y,
+                yaw: packet.orientation_yaw || packet.gyro_z,
               }))}
             />
           </div>
