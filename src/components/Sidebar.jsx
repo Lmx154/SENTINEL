@@ -46,11 +46,12 @@ function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
     };
 
     // Commands that require parameters
-    const commandsWithParameters = ["ALTITUDE_TEST", "ENABLE_ALTITUDE_TEST"];
-
-    const handleSettingChange = (setting, value) => {
+    const commandsWithParameters = ["ALTITUDE_TEST", "ENABLE_ALTITUDE_TEST"];    const handleSettingChange = (setting, value) => {
         setLoraSettings(prev => ({ ...prev, [setting]: value }));
-        setConsoleArray(prev => [...prev, `Setting ${setting} changed to ${value}`]);
+        setConsoleArray(prev => {
+            const newArray = [...prev, `Setting ${setting} changed to ${value}`];
+            return newArray.length > 100 ? newArray.slice(-100) : newArray;
+        });
     };
 
     const loadParserInfo = async () => {
@@ -63,10 +64,16 @@ function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
                     activeParser: info.active_parser,
                     autoDetect: info.auto_detect
                 }));
-                setConsoleArray(prev => [...prev, `Parser info loaded: ${info.available_parsers?.length || 0} parsers available`]);
+                setConsoleArray(prev => {
+                    const newArray = [...prev, `Parser info loaded: ${info.available_parsers?.length || 0} parsers available`];
+                    return newArray.length > 100 ? newArray.slice(-100) : newArray;
+                });
             }
         } catch (error) {
-            setConsoleArray(prev => [...prev, `Failed to load parser info: ${error.message}`]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, `Failed to load parser info: ${error.message}`];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
         }
     };
 
@@ -74,9 +81,15 @@ function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
         try {
             const result = await wsClient.setActiveParser(parserName);
             setParserSettings(prev => ({ ...prev, activeParser: parserName, autoDetect: false }));
-            setConsoleArray(prev => [...prev, `Parser changed to: ${parserName}`]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, `Parser changed to: ${parserName}`];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
         } catch (error) {
-            setConsoleArray(prev => [...prev, `Failed to change parser: ${error.message}`]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, `Failed to change parser: ${error.message}`];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
         }
     };
 
@@ -84,9 +97,15 @@ function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
         try {
             await wsClient.enableAutoDetection();
             setParserSettings(prev => ({ ...prev, autoDetect: true, activeParser: null }));
-            setConsoleArray(prev => [...prev, "Auto-detection enabled"]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, "Auto-detection enabled"];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
         } catch (error) {
-            setConsoleArray(prev => [...prev, `Failed to enable auto-detection: ${error.message}`]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, `Failed to enable auto-detection: ${error.message}`];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
         }
     };
 
@@ -98,10 +117,16 @@ function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
                 fieldNames, 
                 `CUSTOM_${parserSettings.customDelimiter}`
             );
-            setConsoleArray(prev => [...prev, `Custom parser added: ${result}`]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, `Custom parser added: ${result}`];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
             await loadParserInfo(); // Refresh parser list
         } catch (error) {
-            setConsoleArray(prev => [...prev, `Failed to add custom parser: ${error.message}`]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, `Failed to add custom parser: ${error.message}`];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
         }
     };
 
@@ -111,7 +136,10 @@ function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
         exit: { x: -20, opacity: 0 },
     };    useEffect(() => {
         if (!initialized.current) {
-            setConsoleArray((prev) => [...prev, `Initializing system...`]);
+            setConsoleArray((prev) => {
+                const newArray = [...prev, `Initializing system...`];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
             loadParserInfo(); // Load parser info on component mount
             initialized.current = true;
         }
@@ -137,7 +165,10 @@ function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
 
     const handleStartStream = async () => {
         if (isRunning) {
-            setConsoleArray(prev => [...prev, "Stream already running..."]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, "Stream already running..."];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
             return;
         }
         const openResult = await openPort();
@@ -152,13 +183,20 @@ function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
     };
 
     const handleBuzzer = () => {
-        setConsoleArray(prev => [...prev, "Activating buzzer..."]);
-    };
-
-    const handlePressureValve = () => {
-        setConsoleArray(prev => [...prev, "Activating pressure valve..."]);
+        setConsoleArray(prev => {
+            const newArray = [...prev, "Activating buzzer..."];
+            return newArray.length > 100 ? newArray.slice(-100) : newArray;
+        });
+    };    const handlePressureValve = () => {
+        setConsoleArray(prev => {
+            const newArray = [...prev, "Activating pressure valve..."];
+            return newArray.length > 100 ? newArray.slice(-100) : newArray;
+        });
     };    const handleApplySettings = () => {
-        setConsoleArray(prev => [...prev, "Applying LoRa settings..."]);
+        setConsoleArray(prev => {
+            const newArray = [...prev, "Applying LoRa settings..."];
+            return newArray.length > 100 ? newArray.slice(-100) : newArray;
+        });
     };
 
     // Command execution handlers
@@ -179,27 +217,40 @@ function Sidebar({ isRunning, latestPacket, setIsRunning, onSystemReset }) {
         
         commandStr += '>';
         return commandStr;
-    };
-
-    const handleExecuteCommand = async () => {
+    };    const handleExecuteCommand = async () => {
         if (!selectedCommand) {
-            setConsoleArray(prev => [...prev, "No command selected"]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, "No command selected"];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
             return;
         }
 
         if (!selectedPort) {
-            setConsoleArray(prev => [...prev, "No serial port selected. Please select a port in the Controls tab."]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, "No serial port selected. Please select a port in the Controls tab."];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
             return;
         }
 
         try {
             const commandString = buildCommandString(selectedCommand);
-            setConsoleArray(prev => [...prev, `Executing command: ${commandString}`]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, `Executing command: ${commandString}`];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
             
             const result = await wsClient.writeSerial(commandString);
-            setConsoleArray(prev => [...prev, `Command result: ${result}`]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, `Command result: ${result}`];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
         } catch (error) {
-            setConsoleArray(prev => [...prev, `Command failed: ${error.message}`]);
+            setConsoleArray(prev => {
+                const newArray = [...prev, `Command failed: ${error.message}`];
+                return newArray.length > 100 ? newArray.slice(-100) : newArray;
+            });
         }
     };
 

@@ -29,10 +29,30 @@ function App() {
     longitude: 0,
     satellites: 0,
     alt_gps: 0,
-  });
-  const [packets, setPackets] = useState([]);
+  });  const [packets, setPackets] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [packetReceived, setPacketReceived] = useState(false);
+
+  // Helper function to format timestamp for charts
+  const formatChartTimestamp = (timestamp) => {
+    if (!timestamp) return new Date().toLocaleTimeString();
+    
+    try {
+      // Try to parse the timestamp
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) {
+        // If parsing fails, try to extract time from string format like "2023-05-27 11:43:46"
+        const timeMatch = timestamp.match(/(\d{2}):(\d{2}):(\d{2})/);
+        if (timeMatch) {
+          return `${timeMatch[1]}:${timeMatch[2]}:${timeMatch[3]}`;
+        }
+        return new Date().toLocaleTimeString();
+      }
+      return date.toLocaleTimeString();
+    } catch {
+      return new Date().toLocaleTimeString();
+    }
+  };
 
   const handleSystemReset = () => {
     setPackets([]);
@@ -62,7 +82,13 @@ function App() {
       console.log('App.jsx received telemetry-packet event:', event);
       const packet = event.detail.payload;
       console.log('Packet payload:', packet);
-      setPackets(prev => [...prev, packet]);
+      
+      // Limit the packets array to the last 100 packets to prevent performance issues
+      setPackets(prev => {
+        const newPackets = [...prev, packet];
+        return newPackets.length > 100 ? newPackets.slice(-100) : newPackets;
+      });
+      
       setLatestPacket(packet);
       setPacketReceived(true);
       setIsRunning(true);
@@ -134,16 +160,21 @@ function App() {
               }
               packetRecieved={packetReceived}
               setPacketRecieved={setPacketReceived}
-            />
-            <Graphs
+            />            <Graphs
+              velocity={packets.map(packet => ({
+                name: formatChartTimestamp(packet.timestamp),
+                velocityX: 0, // Velocity data not available in current packet structure
+                velocityY: 0,
+                velocityZ: 0
+              }))}
               acceleration={packets.map(packet => ({
-                name: packet.packet_id,
+                name: formatChartTimestamp(packet.timestamp),
                 accelerationX: packet.accel_x,
                 accelerationY: packet.accel_y,
                 accelerationZ: packet.accel_z
               }))}
               rotation={packets.map(packet => ({
-                name: packet.packet_id,
+                name: formatChartTimestamp(packet.timestamp),
                 pitch: packet.gyro_x,
                 yaw: packet.gyro_z,
                 roll: packet.gyro_y,
