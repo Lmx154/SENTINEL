@@ -43,13 +43,16 @@
         }
       ]
     }
-  },
-  "bundle": {
+  },  "bundle": {
     "active": true,
     "targets": "all",
     "icon": [
       "icons/Logo.png",
       "icons/Logo.ico"
-    ]
+    ],
+    "resources": [
+      "../backend/**/*"
+    ],
+    "externalBin": []
   }
 }
