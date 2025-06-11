@@ -11,6 +11,7 @@ SENTINEL is a cutting-edge system designed to collect and transmit environmental
 ## Installation
 Instructions on setting up and configuring the SENTINEL system.
 
+- run backend: uv run python -m websocket_server
 - run: pnpm install
 - next, run: npm run tauri dev
 

@@ -1,15 +1,14 @@
 // src/components/Controls.jsx
 
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from '@tauri-apps/api/event';
+import { wsClient } from '../utils/websocketClient.js';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 export const useLiveDataStream = (setIsRunning, setConsoleArray) => {
   const startLiveStream = async () => {
     try {
       setConsoleArray(prev => [...prev, "Starting live data stream..."]);
-      await invoke('rt_parsed_stream');
-      setConsoleArray(prev => [...prev, "Live data stream started successfully"]);
+      const result = await wsClient.startParsedStream();
+      setConsoleArray(prev => [...prev, result]);
       setIsRunning(true);
       return { success: true };
     } catch (error) {
@@ -22,8 +21,8 @@ export const useLiveDataStream = (setIsRunning, setConsoleArray) => {
   const stopLiveStream = async () => {
     try {
       setConsoleArray(prev => [...prev, "Stopping live data stream..."]);
-      await invoke('close_serial');
-      setConsoleArray(prev => [...prev, "Live data stream stopped"]);
+      const result = await wsClient.closeSerial();
+      setConsoleArray(prev => [...prev, result]);
       setIsRunning(false);
       return { success: true };
     } catch (error) {
@@ -58,14 +57,19 @@ export const useSerialPorts = (setConsoleArray, isRunning) => {
   const [selectedPort, setSelectedPort] = useState('');
 
   useEffect(() => {
-    const unlisten = listen('telemetry-update', (event) => {
-      setParsedData(event.payload);
-    });
+    // Listen for serial data from WebSocket
+    const handleSerialData = (data) => {
+      setParsedData(data);
+      // Dispatch custom event for other components to listen to
+      window.dispatchEvent(new CustomEvent('telemetry-update', { detail: data }));
+    };
+
+    wsClient.onMessage('serial_data', handleSerialData);
+
     return () => {
-      unlisten.then(f => f());
+      wsClient.offMessage('serial_data', handleSerialData);
     };
   }, []);
-
   const refreshPorts = useCallback(async () => {
     if (isRunning) {
       setConsoleArray(prev => [...prev, "Cannot refresh ports while system is running"]);
@@ -74,7 +78,7 @@ export const useSerialPorts = (setConsoleArray, isRunning) => {
     
     setConsoleArray(prev => [...prev, "Refreshing available ports..."]);
     try {
-      const ports = await invoke('list_serial_ports');
+      const ports = await wsClient.listSerialPorts();
       setPorts(ports);
       if (ports.length > 0 && !selectedPort) {
         setSelectedPort(ports[0]);
@@ -92,20 +96,14 @@ export const useSerialPorts = (setConsoleArray, isRunning) => {
    * Instead of calling 'open_serial' then 'start_data_parser', 
    * we can just open the port and then call 'rt_parsed_stream'
    * if we want to unify logic. 
-   */
-  const openPort = async () => {
+   */  const openPort = async () => {
     if (!selectedPort) {
       setConsoleArray(prev => [...prev, "No port selected"]);
       return { success: false };
     }
     try {
-      const result = await invoke('open_serial', { 
-        portName: selectedPort, 
-        baudRate: 115200 
-      });
+      const result = await wsClient.openSerial(selectedPort, 115200);
       setConsoleArray(prev => [...prev, result]);
-      // Now kick off the parser thread
-      await invoke('rt_parsed_stream');
       return { success: true };
     } catch (error) {
       setConsoleArray(prev => [...prev, `Failed to open port: ${error}`]);
@@ -119,7 +117,7 @@ export const useSerialPorts = (setConsoleArray, isRunning) => {
    */
   const closePort = async () => {
     try {
-      const result = await invoke('close_serial');
+      const result = await wsClient.closeSerial();
       setConsoleArray(prev => [...prev, result]);
       return { success: true };
     } catch (error) {
